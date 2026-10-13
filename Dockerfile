@@ -1,28 +1,24 @@
+
 FROM maven:3.9.11-eclipse-temurin-17 AS builder
 
-WORKDIR /app
+WORKDIR /workspace
 
-COPY pom.xml .
+# Install the shared Maven parent inside the Docker build
+COPY gwatcho-maven-parent/pom.xml /tmp/gwatcho-maven-parent/pom.xml
 
-COPY user-service/pom.xml user-service/pom.xml
-COPY product-service/pom.xml product-service/pom.xml
-COPY order-service/pom.xml order-service/pom.xml
-COPY payment-service/pom.xml payment-service/pom.xml
-COPY delivery-service/pom.xml delivery-service/pom.xml
-COPY api-gateway/pom.xml api-gateway/pom.xml
+RUN mvn -B -f /tmp/gwatcho-maven-parent/pom.xml install -N
 
-RUN mvn -pl product-service -am dependency:go-offline -B
+# Copy and build only the product service
+COPY gwatcho-product-service/pom.xml /workspace/gwatcho-product-service/pom.xml
+COPY gwatcho-product-service/src /workspace/gwatcho-product-service/src
 
-COPY product-service/src product-service/src
-
-RUN mvn -pl product-service -am clean package -DskipTests
-
+RUN mvn -B -f /workspace/gwatcho-product-service/pom.xml clean package -DskipTests
 
 FROM eclipse-temurin:17-jre
 
 WORKDIR /app
 
-COPY --from=builder /app/product-service/target/*.jar app.jar
+COPY --from=builder /workspace/gwatcho-product-service/target/*.jar app.jar
 
 EXPOSE 8080
 
